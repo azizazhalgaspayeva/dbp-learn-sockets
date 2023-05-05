@@ -1,6 +1,5 @@
 import socket
 import time
-from _thread import *
 import threading
 
 
@@ -16,6 +15,18 @@ def get_index(client):
 def broadcast(message):
     for client in clients:
         client.send(message)
+
+def welcome_client(client, address):
+    print('Connection is established with ', address)
+    client.send('Alias?'.encode('utf-8'))
+    alias = client.recv(4096)
+    aliases.append(alias)
+    clients.append(client)
+    addresses.append(address)
+    broadcast(alias + ' has connected to the chat room'.encode('utf-8'))
+    client.send('You are now connected!'.encode('utf-8'))
+    print('The alias of this client is '.encode('utf-8') + alias)
+    return alias
 
 def send_message(client, message):
     for destination in clients:  
@@ -33,18 +44,22 @@ def delete_client(client):
     del clients[i]
     broadcast(alias + ' has left the chat room\n'.encode('utf-8'))
 
-def handle_client(client):
+def handle_client(client, address):
+    alias = welcome_client(client, address)
+
     while True:
         try:
             message = client.recv(4096)
             if message.decode('utf-8') == 'exit':
                 delete_client(client)
                 client.send('Exit allowed'.encode('utf-8'))
+                print(alias + ' has left the chat room'.encode('utf-8'))
                 break
             else:
                 send_message(client, message)
         except:
             delete_client(client)
+            print(alias + ' has left the chat room'.encode('utf-8'))
             break
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -53,17 +68,5 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     while True:
         client, address = s.accept()
-        print('Connection is established with ', address)
-        client.send('Alias?'.encode('utf-8'))
-        alias = client.recv(4096)
-        aliases.append(alias)
-        clients.append(client)
-        addresses.append(address)
-        print('The alias of this client is '.encode('utf-8') + alias)
-
-        broadcast(alias + ' has connected to the chat room'.encode('utf-8'))
-        client.send('You are now connected!'.encode('utf-8'))
-        thread = threading.Thread(target=handle_client, args=(client,))
+        thread = threading.Thread(target=handle_client, args=(client, address,))
         thread.start()
-        thread.join()
-        print(alias + ' has left the chat room'.encode('utf-8'))
